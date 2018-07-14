@@ -1,0 +1,27 @@
+fromAll()
+.when({
+    $init: function(){
+        return {}
+    },
+    AddedToCart: function(s,e){
+        var userId = e.body.UserId;
+        var productId = e.body.ProductId;
+
+        if (s[userId]) {
+            s[userId] += 1
+        } else {
+            s[userId] = 1
+        }
+    },
+
+    RemovedFromCart: function(s,e){
+        var userId = e.body.UserId;
+        var productId = e.body.ProductId;
+
+        if (s[userId]) {
+            s[userId] -= 1
+        } else {
+            s[userId] = 0
+        }
+    }
+})
