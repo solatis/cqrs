@@ -3,59 +3,80 @@ import random
 import time
 import uuid
 import requests
+import numpy
 
 ENDPOINT="localhost:2113"
 STREAM="commerce"
-MAX_PRODUCT_COUNT=10
+SPEED=25
+USERS=100
+PRODUCTS=10000
+
+events = ["VisitedProductPage",
+          "AddedToCart",
+          "RemovedFromCart",
+          "CheckedOut",
+          "SentBack"]
+
+transitionMatrix = [[0, 1],
+                    [1, 0, 2, 3, -1],
+                    [1, 0, 3, -1],
+                    [0, 4, -1],
+                    [0, -1]]
+
+transitionProbabilities = [[0.7,0.3],
+                           [0.1,0.3,0.1,0.4,0.1],
+                           [0.5, 0.2, 0.2, 0.1],
+                           [0.2, 0.1, 0.7],
+                           [0.25, 0.75]]
 
 def select_user():
-    return random.randint(1230,1240)
+    return random.randint(0,USERS)
 
 def select_product():
-    return random.randint(9870,9890)
+    return random.randint(0,PRODUCTS)
 
-def select_products():
-    return set([select_product() for i in range(MAX_PRODUCT_COUNT)])
 
-def add_products_to_cart(products):
-    return random.sample(products, random.randint(1, 3))
+def transition_generator(cur = 0, product_id = select_product()):
+    while True:
+        cur = numpy.random.choice(transitionMatrix[cur],replace=True,p=transitionProbabilities[cur])
 
-def remove_products_from_cart(products):
-    return random.sample(products, 1)
+        if cur == -1:
+            return
 
-def event_visit_product_page(user_id, product_id):
-    return {'data': {'UserId': user_id,
-                     'ProductId': product_id},
-            'eventType': 'VisitedProductPage',
-            'eventId': str(uuid.uuid4())}
+        if cur == 0:
+            # Visit new product page
+            product_id = select_product()
 
-def event_add_product_to_cart(user_id, product_id):
-    return {'data': {'UserId': user_id,
-                     'ProductId': product_id},
-            'eventType': 'AddedToCart',
-            'eventId': str(uuid.uuid4())}
+        yield events[cur], product_id
 
-def event_remove_product_from_cart(user_id, product_id):
-    return {'data': {'UserId': user_id,
-                     'ProductId': product_id},
-            'eventType': 'RemovedFromCart',
-            'eventId': str(uuid.uuid4())}
+def transitions():
+    gen = transition_generator()
+
+    xs = []
+
+    while True:
+        try:
+            event, product_id = next(gen)
+        except StopIteration:
+            break
+
+        xs.append((event, product_id))
+
+    return xs
 
 def generate_events():
     user_id = select_user()
-    products = select_products()
 
-    products_adds = add_products_to_cart(products)
-    products_removes = remove_products_from_cart(products)
 
-    product_visits = [(event_visit_product_page(user_id, product_id))
-                      for product_id in products]
-    cart_adds = [(event_add_product_to_cart(user_id, product_id))
-                 for product_id in products_adds]
-    cart_removes = [(event_remove_product_from_cart(user_id, product_id))
-                    for product_id in products_removes]
+    events = []
 
-    return product_visits + cart_adds + cart_removes
+    for event, product_id in transitions():
+        events.append({'data': {'UserId': user_id,
+                                'ProductId': product_id},
+                       'eventType': event,
+                       'eventId': str(uuid.uuid4())})
+
+    return events
 
 def push(event):
     print('==> ', event)
@@ -68,4 +89,4 @@ def push(event):
 if __name__ == "__main__":
     while True:
         push(generate_events())
-        time.sleep(1)
+        time.sleep(random.randint(1,10)/SPEED)
