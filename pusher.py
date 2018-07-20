@@ -72,7 +72,9 @@ def generate_events():
 
     for event, product_id in transitions():
         events.append({'data': {'UserId': user_id,
-                                'ProductId': product_id},
+                                'ProductId': product_id,
+                                'Timestamp': int(time.time())
+                               },
                        'eventType': event,
                        'eventId': str(uuid.uuid4())})
 
